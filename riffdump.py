@@ -49,6 +49,19 @@ class AviStreamHeader(NamedStruct):
 		("H",  "bottom")
 	]
 
+AVIIF_LIST =     0x00000001
+AVIIF_KEYFRAME = 0x00000010
+AVIIF_NO_TIME =  0x00000100
+
+class AviOldIndexEntry(NamedStruct):
+	endian = "little"
+	fields = [
+		("4s", "ChunkId"),
+		("I",  "Flags"),
+		("I",  "Offset"),
+		("I",  "Size")
+	]
+
 
 def read_4cc(stream):
 	return stream.read(4)
@@ -94,6 +107,11 @@ def dump(stream):
 			elif fourcc == "strh":
 				header = AviStreamHeader.from_stream(stream)
 				pprint(header.__dict__)
+			elif fourcc == "idx1":
+				while size > 0:
+					entry = AviOldIndexEntry.from_stream(stream)
+					pprint(entry.__dict__)
+					size -= AviOldIndexEntry.size()
 			else:
 				stream.seek(size, os.SEEK_CUR)
 
