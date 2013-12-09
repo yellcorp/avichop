@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 
+from NamedStruct import NamedStruct
+from pprint import pprint
 import os
 import struct
 import sys
@@ -9,40 +11,43 @@ import sys
 list_types = frozenset(("RIFF", "LIST"))
 
 
-AVIMAINHEADER = struct.Struct("<10I16s")
-AVIMAINHEADER_NAMES = (
-	"MicroSecPerFrame",
-  	"MaxBytesPerSec",
-  	"PaddingGranularity",
-  	"Flags",
-  	"TotalFrames",
-  	"InitialFrames",
-  	"Streams",
-  	"SuggestedBufferSize",
-  	"Width",
-  	"Height",
-  	"Reserved")
+class AviMainHeader(NamedStruct):
+	endian = "little"
+	fields = [
+		("I",   "MicroSecPerFrame"),
+		("I",   "MaxBytesPerSec"),
+		("I",   "PaddingGranularity"),
+		("I",   "Flags"),
+		("I",   "TotalFrames"),
+		("I",   "InitialFrames"),
+		("I",   "Streams"),
+		("I",   "SuggestedBufferSize"),
+		("I",   "Width"),
+		("I",   "Height"),
+		("16s", "Reserved")
+	]
 
-
-AVISTREAMHEADER = struct.Struct("<4s4sI2H8I4H")
-AVISTREAMHEADER_NAMES = (
-	"fccType",
-	"fccHandler",
-	"Flags",
-	"Priority",
-	"Language",
-	"InitialFrames",
-	"Scale",
-	"Rate",
-	"Start",
-	"Length",
-	"SuggestedBufferSize",
-	"Quality",
-	"SampleSize",
-	"left",
-	"top",
-	"right",
-	"bottom")
+class AviStreamHeader(NamedStruct):
+	endian = "little"
+	fields = [
+		("4s", "fccType"),
+		("4s", "fccHandler"),
+		("I",  "Flags"),
+		("H",  "Priority"),
+		("H",  "Language"),
+		("I",  "InitialFrames"),
+		("I",  "Scale"),
+		("I",  "Rate"),
+		("I",  "Start"),
+		("I",  "Length"),
+		("I",  "SuggestedBufferSize"),
+		("I",  "Quality"),
+		("I",  "SampleSize"),
+		("H",  "left"),
+		("H",  "top"),
+		("H",  "right"),
+		("H",  "bottom")
+	]
 
 
 def read_4cc(stream):
@@ -88,9 +93,11 @@ def dump(stream):
 				size += 1
 
 			if fourcc == "avih":
-				dump_fields(AVIMAINHEADER_NAMES, read_struct(stream, AVIMAINHEADER))
+				header = AviMainHeader.from_stream(stream)
+				pprint(header.__dict__)
 			elif fourcc == "strh":
-				dump_fields(AVISTREAMHEADER_NAMES, read_struct(stream, AVISTREAMHEADER))
+				header = AviStreamHeader.from_stream(stream)
+				pprint(header.__dict__)
 			else:
 				stream.seek(size, os.SEEK_CUR)
 
