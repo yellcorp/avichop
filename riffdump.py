@@ -1,66 +1,18 @@
 #!/usr/bin/python
 
 
-from NamedStruct import NamedStruct
+from Avi import MainHeader, StreamHeader, OldIndexEntry
+
+
 from pprint import pprint
 import os
 import struct
 import sys
 
 
+# http://www.alexander-noe.com/video/documentation/avi.pdf
+
 list_types = frozenset(("RIFF", "LIST"))
-
-
-class AviMainHeader(NamedStruct):
-	endian = "little"
-	fields = [
-		("I",   "MicroSecPerFrame"),
-		("I",   "MaxBytesPerSec"),
-		("I",   "PaddingGranularity"),
-		("I",   "Flags"),
-		("I",   "TotalFrames"),
-		("I",   "InitialFrames"),
-		("I",   "Streams"),
-		("I",   "SuggestedBufferSize"),
-		("I",   "Width"),
-		("I",   "Height"),
-		("16s", "Reserved")
-	]
-
-class AviStreamHeader(NamedStruct):
-	endian = "little"
-	fields = [
-		("4s", "fccType"),
-		("4s", "fccHandler"),
-		("I",  "Flags"),
-		("H",  "Priority"),
-		("H",  "Language"),
-		("I",  "InitialFrames"),
-		("I",  "Scale"),
-		("I",  "Rate"),
-		("I",  "Start"),
-		("I",  "Length"),
-		("I",  "SuggestedBufferSize"),
-		("I",  "Quality"),
-		("I",  "SampleSize"),
-		("H",  "left"),
-		("H",  "top"),
-		("H",  "right"),
-		("H",  "bottom")
-	]
-
-AVIIF_LIST =     0x00000001
-AVIIF_KEYFRAME = 0x00000010
-AVIIF_NO_TIME =  0x00000100
-
-class AviOldIndexEntry(NamedStruct):
-	endian = "little"
-	fields = [
-		("4s", "ChunkId"),
-		("I",  "Flags"),
-		("I",  "Offset"),
-		("I",  "Size")
-	]
 
 
 def read_4cc(stream):
@@ -102,16 +54,16 @@ def dump(stream):
 				size += 1
 
 			if fourcc == "avih":
-				header = AviMainHeader.from_stream(stream)
+				header = MainHeader.from_stream(stream)
 				pprint(header.__dict__)
 			elif fourcc == "strh":
-				header = AviStreamHeader.from_stream(stream)
+				header = StreamHeader.from_stream(stream)
 				pprint(header.__dict__)
 			elif fourcc == "idx1":
 				while size > 0:
-					entry = AviOldIndexEntry.from_stream(stream)
+					entry = OldIndexEntry.from_stream(stream)
 					pprint(entry.__dict__)
-					size -= AviOldIndexEntry.size()
+					size -= OldIndexEntry.size()
 			else:
 				stream.seek(size, os.SEEK_CUR)
 
