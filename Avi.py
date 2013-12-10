@@ -199,12 +199,20 @@ class AviFile(object):
 			pass
 
 	def _parse_stream(self):
-		strl = self._next_chunk()
-		if strl.fcc != _LIST or strl.sub_fcc != "strl":
-			self._put_back(strl)
-			return False
+		while True:
+			strl = self._next_chunk()
+			# search for next LIST/strl chunk
+			if strl.fcc == _LIST and strl.sub_fcc == "strl":
+				break
+			# skip LIST/odml chunks
+			elif strl.fcc == _LIST and strl.sub_fcc == "odml":
+				self._skip_chunk(strl)
+			# back up if anything else is found
+			else:
+				self._put_back(strl)
+				return False
 
-		self._log("Stream definition")
+		self._log("Stream definition #{0}".format(len(self._stream_data)))
 
 		strh = self._require_chunk("strh")
 		stream_header = self._read_struct_chunk(strh, StreamHeader)
