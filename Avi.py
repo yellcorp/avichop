@@ -7,6 +7,9 @@ import re
 import struct
 
 
+# http://www.alexander-noe.com/video/documentation/avi.pdf
+
+
 _4CC_RIFF = "RIFF"
 _4CC_LIST = "LIST"
 _4CC_JUNK = "JUNK"

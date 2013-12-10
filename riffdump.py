@@ -10,8 +10,6 @@ import struct
 import sys
 
 
-# http://www.alexander-noe.com/video/documentation/avi.pdf
-
 list_types = frozenset(("RIFF", "LIST"))
 
 
