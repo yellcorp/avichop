@@ -122,6 +122,13 @@ def _expect_equal(noun, expect, got):
 			noun, expect, got))
 
 
+def _from_asciiz(s):
+	z = s.find("\x00")
+	if z >= 0:
+		s = s[:z]
+	return s.decode("cp1252")
+
+
 class AviFile(object):
 	def __init__(self, bytestream):
 		self._file = bytestream
@@ -202,7 +209,7 @@ class AviFile(object):
 
 		stream_name = None
 		if ch_4cc == "strn":
-			stream_name = self._file.read(size)
+			stream_name = _from_asciiz(self._file.read(size))
 			print "Stream name: {0!r}".format(stream_name)
 		else:
 			self._file.seek(-8, os.SEEK_CUR)
