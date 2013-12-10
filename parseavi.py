@@ -7,7 +7,7 @@ import Avi
 
 
 def test_avi(stream):
-	a = Avi.AviFile(stream)
+	a = Avi.AviFile(stream, debug=True)
 	a.parse()
 
 
