@@ -7,6 +7,8 @@ class NamedStruct(object):
         "big": ">"
     }
 
+    _packer = None
+
     @classmethod
     def struct_string(cls):
         return cls._endianMap.get(cls.endian, "=") + \
@@ -14,8 +16,8 @@ class NamedStruct(object):
 
     @classmethod
     def packer(cls):
-        if not hasattr(cls, "_packer"):
-            setattr(cls, "_packer", struct.Struct(cls.struct_string()))
+        if cls._packer is None:
+            cls._packer = struct.Struct(cls.struct_string())
         return cls._packer
 
     @classmethod
