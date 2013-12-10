@@ -65,10 +65,6 @@ def read_chunk(stream):
 	return (None, None)
 
 
-def read_struct(stream, s):
-	return s.unpack(stream.read(s.size))
-
-
 def dump_fields(names, values):
 	for n, v in zip(names, values):
 		print " {0} = {1!r}".format(n, v)
