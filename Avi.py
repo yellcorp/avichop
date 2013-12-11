@@ -468,7 +468,7 @@ class AviInput(object):
 		self._require_chunk("RIFF", "AVI ")
 		self._parse_hdrl()
 
-		movi = self._require_chunk("LIST", "movi")
+		movi = self._find_chunk("LIST", "movi")
 		self._movi_offset = self._file.tell() - 4
 		self._log("movi_offset = {0:x}", self._movi_offset)
 		self._skip_chunk(movi)
@@ -650,6 +650,15 @@ class AviInput(object):
 		if sub_fcc is not None:
 			_expect_equal("list", sub_fcc, c.sub_fcc)
 		return c
+
+	def _find_chunk(self, fcc, sub_fcc=None):
+		while True:
+			c = self._next_chunk()
+			if c is None:
+				return None
+			if fcc == c.fcc and (sub_fcc is None or sub_fcc == c.sub_fcc):
+				return c
+			self._skip_chunk(c)
 
 	def _next_chunk(self):
 		while True:
