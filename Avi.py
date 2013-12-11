@@ -2,6 +2,7 @@ from NamedStruct import NamedStruct
 import Timecode
 
 import collections
+import math
 import os
 import pprint
 import re
@@ -140,8 +141,30 @@ def _unpack_frame_fcc(fcc):
 	return (int(match.group(1)), match.group(2))
 
 
+class _RateMonitor(object):
+	def __init__(self, fps, min_sample_count=0):
+		self._fps = float(fps)
+		self._num_samples = int(math.ceil(self._fps))
+		self._samples = list()
+		self._max = 0.0
+		self._min_sample_count = min_sample_count
 
+	def sample(self, size):
+		if len(self._samples) == self._num_samples:
+			self._samples.pop(0)
+		self._samples.append(size)
+		if len(self._samples) > self._min_sample_count:
+			self._max = max(self._max, self.rate())
 
+	def rate(self):
+		if len(self._samples) > 0:
+			return sum(self._samples) * self._fps / len(self._samples)
+		return 0.0
+
+	def max(self):
+		if len(self._samples) > self._min_sample_count:
+			return self._max
+		return self.rate()
 
 
 class VideoStream(object):
@@ -248,7 +271,7 @@ class AviOutput(object):
 		self._movi_offset = None
 
 		self.frame_rate = 0.0
-		self.max_bytes_per_sec = 0
+		self._rate_monitor = None
 
 		self.width = 0
 		self.height = 0
@@ -286,6 +309,8 @@ class AviOutput(object):
 			self._write_hdrl()
 		if self._movi is None:
 			self._begin_movi()
+		if self._rate_monitor is None:
+			self._rate_monitor = _RateMonitor(self.frame_rate, self.frame_rate * 0.5)
 
 		chunk_name = _VFRAME_ID_FORMAT.format(stream_num, avi_frame.frame_type)
 		offset = self._file.tell()
@@ -293,6 +318,8 @@ class AviOutput(object):
 		chunk = self._new_chunk(chunk_name)
 		self._file.write(avi_frame.data)
 		chunk.close()
+
+		self._rate_monitor.sample(len(avi_frame.data) + 8)
 
 		e = OldIndexEntry()
 		e.ChunkId = chunk_name
@@ -317,7 +344,7 @@ class AviOutput(object):
 	def _update_main_header(self):
 		h = MainHeader()
 		h.MicroSecPerFrame = self.microseconds_per_frame()
-		h.MaxBytesPerSec = self.max_bytes_per_sec
+		h.MaxBytesPerSec = int(math.ceil(self._rate_monitor.max()))
 		h.PaddingGranularity = 0
 		h.Flags = F_HASINDEX | F_ISINTERLEAVED
 		h.TotalFrames = sum(vs.frame_count for vs in self.video_streams)
@@ -326,6 +353,8 @@ class AviOutput(object):
 		h.SuggestedBufferSize = max(vs.suggested_buffer_size for vs in self.video_streams)
 		h.Width = self.width
 		h.Height = self.height
+
+		self._log.write("MaxBytesPerSec measured as {0}".format(h.MaxBytesPerSec))
 
 		self._avih_field.update(h.pack())
 
