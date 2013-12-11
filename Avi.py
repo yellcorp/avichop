@@ -86,17 +86,17 @@ class OldIndexEntry(NamedStruct):
 class BitmapInfoHeader(NamedStruct):
 	endian = "little"
 	fields = [
-		("I", "Size"),
-		("i", "Width"),
-		("i", "Height"),
-		("H", "Planes"),
-		("H", "BitCount"),
-		("I", "Compression"),
-		("I", "SizeImage"),
-		("i", "XPelsPerMeter"),
-		("i", "YPelsPerMeter"),
-		("I", "ClrUsed"),
-		("I", "ClrImportant")
+		("I",  "Size"),
+		("i",  "Width"),
+		("i",  "Height"),
+		("H",  "Planes"),
+		("H",  "BitCount"),
+		("4s", "Compression"),
+		("I",  "SizeImage"),
+		("i",  "XPelsPerMeter"),
+		("i",  "YPelsPerMeter"),
+		("I",  "ClrUsed"),
+		("I",  "ClrImportant")
 	]
 
 
