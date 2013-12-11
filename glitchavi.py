@@ -8,7 +8,7 @@ import Avi
 
 def glitch_avi(in_stream, out_stream):
 	in_avi = Avi.AviInput(in_stream, debug=True)
-	out_avi = Avi.AviOutput(out_stream)
+	out_avi = Avi.AviOutput(out_stream, debug=True)
 
 	out_avi.max_bytes_per_sec = in_avi.max_bytes_per_sec
 

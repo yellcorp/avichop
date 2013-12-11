@@ -140,21 +140,8 @@ def _unpack_frame_fcc(fcc):
 	return (int(match.group(1)), match.group(2))
 
 
-def _log(message, *args, **kwargs):
-	if args or kwargs:
-		message = message.format(*args, **kwargs)
-	print >> sys.stderr, message
 
 
-def _log_obj(obj):
-	if hasattr(obj, "__dict__"):
-		pprint.pprint(obj.__dict__, stream=sys.stderr)
-	else:
-		print >> sys.stderr, repr(obj)
-
-
-def _null_func(*args, **kwargs):
-	pass
 
 
 class VideoStream(object):
@@ -251,7 +238,7 @@ class _OutputStreamState(object):
 
 
 class AviOutput(object):
-	def __init__(self, bytestream):
+	def __init__(self, bytestream, debug=None):
 		self._file = bytestream
 		self._riff = self._new_chunk("RIFF", "AVI ")
 
@@ -269,6 +256,8 @@ class AviOutput(object):
 		self.video_streams = [ ]
 		self._stream_states = None
 		self._frame_index = bytearray()
+
+		self._log = _Logger(debug)
 
 	def microseconds_per_frame(self):
 		return round(1e6 / Timecode.interpret_frame_rate(self.frame_rate))
@@ -421,8 +410,41 @@ class AviOutput(object):
 		return _ChunkWriter(self._file, chunk_fcc, list_fcc)
 
 
+def _default_log_func(m):
+	print >> sys.stderr, m
+
+class _Logger(object):
+	def __init__(self, log_func=None):
+		if log_func is True:
+			log_func = _default_log_func
+
+		self._log_func = log_func
+
+		if log_func:
+			self.write = self._write
+			self.writeobj = self._writeobj
+		else:
+			self.write = self._null_func
+			self.writeobj = self._null_func
+
+	def _write(self, message, *args, **kwargs):
+		if args or kwargs:
+			message = message.format(*args, **kwargs)
+		self._log_func(message)
+
+	def _writeobj(self, obj):
+		try:
+			d = obj.__dict__
+			self._log_func(pprint.pformat(d))
+		except AttributeError:
+			self._log_func(repr(obj))
+
+	def _null_func(self, *args, **kwargs):
+		pass
+
+
 class AviInput(object):
-	def __init__(self, bytestream, debug=False):
+	def __init__(self, bytestream, debug=None):
 		self._file = bytestream
 
 		self.file_header = None
@@ -434,12 +456,7 @@ class AviInput(object):
 
 		self._movi_offset = None
 
-		if debug:
-			self._log = _log
-			self._log_obj = _log_obj
-		else:
-			self._log = _null_func
-			self._log_obj = _null_func
+		self._log = _Logger(debug)
 
 		self._parse()
 
@@ -470,7 +487,7 @@ class AviInput(object):
 
 		movi = self._find_chunk("LIST", "movi")
 		self._movi_offset = self._file.tell() - 4
-		self._log("movi_offset = {0:x}", self._movi_offset)
+		self._log.write("movi_offset = {0:x}", self._movi_offset)
 		self._skip_chunk(movi)
 
 		if self._parse_idx1():
@@ -480,7 +497,7 @@ class AviInput(object):
 
 		for vs in self.video_streams:
 			vs.frame_count = len(self._stream_indices[vs.stream_num])
-			self._log_obj(vs)
+			self._log.writeobj(vs)
 
 	def _parse_hdrl(self):
 		self._require_chunk("LIST", "hdrl")
@@ -488,8 +505,8 @@ class AviInput(object):
 		self.file_header = self._read_struct_chunk(avih, MainHeader)
 		self.max_bytes_per_sec = self.file_header.MaxBytesPerSec
 
-		self._log("File header")
-		self._log_obj(self.file_header)
+		self._log.write("File header")
+		self._log.writeobj(self.file_header)
 
 		self.video_streams = [ ]
 		self._stream_data = [ ]
@@ -510,20 +527,20 @@ class AviInput(object):
 				self._put_back(strl)
 				return False
 
-		self._log("Stream definition #{0}".format(len(self._stream_data)))
+		self._log.write("Stream definition #{0}".format(len(self._stream_data)))
 
 		strh = self._require_chunk("strh")
 		stream_header = self._read_struct_chunk(strh, StreamHeader)
 
-		self._log("Stream header")
-		self._log_obj(stream_header)
+		self._log.write("Stream header")
+		self._log.writeobj(stream_header)
 
 		bitmap_info = None
 		strf = self._require_chunk("strf")
 		if stream_header.fccType == "vids":
 			bitmap_info = self._read_struct_chunk(strf, BitmapInfoHeader)
-			self._log("Bitmap info header")
-			self._log_obj(bitmap_info)
+			self._log.write("Bitmap info header")
+			self._log.writeobj(bitmap_info)
 		else:
 			self._skip_chunk(strf)
 
@@ -531,13 +548,13 @@ class AviInput(object):
 		c = self._next_chunk()
 		if c.fcc == "strd":
 			codec_data = self._read_chunk_content(c)
-			self._log("Codec data: {0} bytes", len(codec_data))
+			self._log.write("Codec data: {0} bytes", len(codec_data))
 			c = self._next_chunk()
 
 		stream_name = None
 		if c.fcc == "strn":
 			stream_name = _from_asciiz(self._read_chunk_content(c))
-			self._log("Stream name: {0!r}", stream_name)
+			self._log.write("Stream name: {0!r}", stream_name)
 		else:
 			self._put_back(c)
 
@@ -567,11 +584,11 @@ class AviInput(object):
 	def _parse_idx1(self):
 		idx1 = self._next_chunk()
 		if idx1.fcc != "idx1":
-			self._log("idx1 not present")
+			self._log.write("idx1 not present")
 			self._put_back(idx1)
 			return False
 
-		self._log("idx1 present")
+		self._log.write("idx1 present")
 
 		si = collections.defaultdict(list)
 		entry_count = int(idx1.content_length / float(OldIndexEntry.size()))
@@ -586,7 +603,7 @@ class AviInput(object):
 						entry.Offset,
 						entry.Size))
 
-					self._log("#{0}: {1}",
+					self._log.write("#{0}: {1}",
 						stream_num,
 						pprint.pformat(entry.__dict__))
 
