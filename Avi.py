@@ -229,6 +229,7 @@ class AviInput(object):
 
 		movi = self._require_chunk(_LIST, "movi")
 		self._movi_offset = self._file.tell() - 4
+		self._log("movi_offset = {0:x}", self._movi_offset)
 		self._skip_chunk(movi)
 
 		if self._parse_idx1():
