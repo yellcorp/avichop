@@ -12,14 +12,9 @@ import sys
 # http://www.alexander-noe.com/video/documentation/avi.pdf
 
 
-_RIFF = "RIFF"
-_LIST = "LIST"
-_JUNK = "JUNK"
-_AVI  = "AVI "
-
 _4CC_NULL = "\x00" * 4
 
-_LIST_TYPES = frozenset((_RIFF, _LIST))
+_LIST_TYPES = frozenset(("RIFF", "LIST"))
 
 _VFRAME_ID_PATTERN = re.compile(r"^(\d\d)(d[bc])$")
 
@@ -242,10 +237,10 @@ class AviInput(object):
 		return AviFrame(frame_num, frame_type, frame_info.flags, data)
 
 	def _parse(self):
-		self._require_chunk(_RIFF, _AVI)
+		self._require_chunk("RIFF", "AVI ")
 		self._parse_hdrl()
 
-		movi = self._require_chunk(_LIST, "movi")
+		movi = self._require_chunk("LIST", "movi")
 		self._movi_offset = self._file.tell() - 4
 		self._log("movi_offset = {0:x}", self._movi_offset)
 		self._skip_chunk(movi)
@@ -260,7 +255,7 @@ class AviInput(object):
 			self._log_obj(vs)
 
 	def _parse_hdrl(self):
-		self._require_chunk(_LIST, "hdrl")
+		self._require_chunk("LIST", "hdrl")
 		avih = self._require_chunk("avih")
 		self.file_header = self._read_struct_chunk(avih, MainHeader)
 		self.max_bytes_per_sec = self.file_header.MaxBytesPerSec
@@ -277,10 +272,10 @@ class AviInput(object):
 		while True:
 			strl = self._next_chunk()
 			# search for next LIST/strl chunk
-			if strl.fcc == _LIST and strl.sub_fcc == "strl":
+			if strl.fcc == "LIST" and strl.sub_fcc == "strl":
 				break
 			# skip LIST/odml chunks
-			elif strl.fcc == _LIST and strl.sub_fcc == "odml":
+			elif strl.fcc == "LIST" and strl.sub_fcc == "odml":
 				self._skip_chunk(strl)
 			# back up if anything else is found
 			else:
@@ -399,7 +394,7 @@ class AviInput(object):
 			c = self._next_chunk()
 			if c is None:
 				break
-			elif c.fcc != _LIST:
+			elif c.fcc != "LIST":
 				stream_num, frame_type = _unpack_frame_fcc(c.fcc)
 				if stream_num is not None:
 					si[stream_num].append(_IndexPointer(
@@ -437,7 +432,7 @@ class AviInput(object):
 			fcc, content_length = struct.unpack("<4sI", h)
 			file_length = content_length + (content_length & 1)
 
-			if fcc == _JUNK:
+			if fcc == "JUNK":
 				self._file.seek(file_length, os.SEEK_CUR)
 			else:
 				list_fcc = None
