@@ -290,6 +290,9 @@ class AviOutput(object):
 		self.video_streams[0].write_frame(avi_frame)
 
 	def write_stream_frame(self, stream_num, avi_frame):
+		if avi_frame is None:
+			return
+
 		if self._avih_field is None:
 			self._write_hdrl()
 		if self._movi is None:
@@ -447,6 +450,10 @@ class AviInput(object):
 
 	def get_stream_frame(self, stream_num, frame_num):
 		index = self._stream_indices[stream_num]
+
+		if frame_num < 0 or frame_num >= len(index):
+			return None
+
 		frame_info = index[frame_num]
 
 		frame_type = frame_info.chunk_id[2:]

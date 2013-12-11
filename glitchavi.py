@@ -19,17 +19,12 @@ def glitch_avi(in_stream, out_stream):
 
 	out_v = out_avi.new_stream(in_v)
 
-	mid_frame_num = (in_v.frame_count >> 1) - 30
-
-	for f in xrange(0, mid_frame_num):
-		out_v.write_frame(in_v.get_frame(f))
-
-	mid_frame = in_v.get_frame(mid_frame_num)
-	for f in xrange(0, 50):
-		out_v.write_frame(mid_frame)
-
-	for f in xrange(mid_frame_num, in_v.frame_count):
-		out_v.write_frame(in_v.get_frame(f))
+	repeat_frame_num = int(7.15 * 30)
+	for f in xrange(0, in_v.frame_count):
+		frame = in_v.get_frame(f)
+		repeat_count = 1
+		for x in xrange(0, f == repeat_frame_num and 30 or 1):
+			out_v.write_frame(frame)
 
 	out_avi.close()
 
