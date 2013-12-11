@@ -17,6 +17,8 @@ _LIST = "LIST"
 _JUNK = "JUNK"
 _AVI  = "AVI "
 
+_4CC_NULL = "\x00" * 4
+
 _LIST_TYPES = frozenset((_RIFF, _LIST))
 
 _VFRAME_ID_PATTERN = re.compile(r"^(\d\d)(d[bc])$")
@@ -167,11 +169,11 @@ class VideoStream(object):
 		self.frame_rate = 0.0
 		self.frame_count = 0
 
-		self.codec = "\x00" * 4
+		self.codec = _4CC_NULL
 		self.codec_data = None
 		self.suggested_buffer_size = 0
 		self.bit_depth = 0
-		self.compression = "\x00" * 4
+		self.compression = _4CC_NULL
 		self.size_image = 0
 
 	def set_from(self, other_stream):
