@@ -202,6 +202,8 @@ class AviInput(object):
 			self._log = _null_func
 			self._log_obj = _null_func
 
+		self._parse()
+
 	def get_frame(self, frame_num=None, seconds=None, timecode=None):
 		# convenience method which maps to the get_frame method of the
 		# first video stream, which is by far the common case
@@ -219,7 +221,7 @@ class AviInput(object):
 
 		return AviFrame(frame_num, frame_type, frame_info.flags, data)
 
-	def parse(self):
+	def _parse(self):
 		self._require_chunk(_RIFF, "AVI ")
 		self._parse_hdrl()
 
