@@ -189,6 +189,7 @@ class AviInput(object):
 		self._file = bytestream
 
 		self.file_header = None
+		self.max_bytes_per_sec = 0
 
 		self.video_streams = None
 		self._stream_data = None
@@ -243,6 +244,7 @@ class AviInput(object):
 		self._require_chunk(_LIST, "hdrl")
 		avih = self._require_chunk("avih")
 		self.file_header = self._read_struct_chunk(avih, MainHeader)
+		self.max_bytes_per_sec = self.file_header.MaxBytesPerSec
 
 		self._log("File header")
 		self._log_obj(self.file_header)
