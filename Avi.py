@@ -1,4 +1,5 @@
 from NamedStruct import NamedStruct
+import Timecode
 
 import collections
 import os
@@ -81,17 +82,6 @@ class OldIndexEntry(NamedStruct):
 	]
 
 
-class IndexPointer(object):
-	def __init__(self, chunk_id, flags, offset, size):
-		self.id = chunk_id
-		self.flags = flags
-		self.offset = offset
-		self.size = size
-
-	def is_compressed(self):
-		return self.id[3] == 'c'
-
-
 class BitmapInfoHeader(NamedStruct):
 	endian = "little"
 	fields = [
@@ -113,8 +103,16 @@ _Chunk = collections.namedtuple("_Chunk",
 	("fcc", "sub_fcc", "header_size", "content_length", "file_length"))
 
 
+_IndexPointer = collections.namedtuple("_IndexPointer",
+	("chunk_id", "flags", "offset", "size"))
+
+
 _StreamInfo = collections.namedtuple("_StreamInfo",
 	("header", "bitmap_info", "codec_data", "name"))
+
+
+AviFrame = collections.namedtuple("AviFrame",
+	("frame_num", "frame_type", "flags", "data"))
 
 
 class FormatError(Exception):
@@ -158,14 +156,44 @@ def _null_func(*args, **kwargs):
 	pass
 
 
-class AviFile(object):
+class VideoStream(object):
+	def __init__(self, owner, stream_num, width, height, frame_count, frame_rate):
+		self._owner = owner
+		self.stream_num = stream_num
+		self.width = width
+		self.height = height
+		self.frame_count = frame_count
+		self.frame_rate = Timecode.interpret_frame_rate(frame_rate)
+
+	def duration(self):
+		return self.frame_count / self.frame_rate
+
+	def seconds_to_frame(self, seconds):
+		return round(self.frame_rate * seconds)
+
+	def timecode_to_frame(self, timecode):
+		return Timecode.parse_timecode(timecode, self.frame_rate)
+
+	def get_frame(self, frame_num=None, seconds=None, timecode=None):
+		if timecode is not None:
+			frame_num = self.timecode_to_frame(timecode)
+		elif seconds is not None:
+			frame_num = self.seconds_to_frame(seconds)
+
+		return self._owner.get_stream_frame(self.stream_num, frame_num)
+
+
+class AviInput(object):
 	def __init__(self, bytestream, debug=False):
 		self._file = bytestream
-		self._index = None
+
 		self.file_header = None
-		self._stream_data = [ ]
+
+		self.video_streams = None
+		self._stream_data = None
+		self._stream_indices = None
+
 		self._movi_offset = None
-		self._video_indices = None
 
 		if debug:
 			self._log = _log
@@ -173,6 +201,23 @@ class AviFile(object):
 		else:
 			self._log = _null_func
 			self._log_obj = _null_func
+
+	def get_frame(self, frame_num=None, seconds=None, timecode=None):
+		# convenience method which maps to the get_frame method of the
+		# first video stream, which is by far the common case
+		return self.video_streams[0].get_frame(frame_num, seconds, timecode)
+
+	def get_stream_frame(self, stream_num, frame_num):
+		index = self._stream_indices[stream_num]
+		frame_info = index[frame_num]
+
+		frame_type = frame_info.chunk_id[2:]
+
+		# +8 to skip chunk header
+		self._file.seek(self._movi_offset + frame_info.offset + 8)
+		data = self._file.read(frame_info.size)
+
+		return AviFrame(frame_num, frame_type, frame_info.flags, data)
 
 	def parse(self):
 		self._require_chunk(_RIFF, "AVI ")
@@ -187,6 +232,10 @@ class AviFile(object):
 		else:
 			self._build_index()
 
+		for vs in self.video_streams:
+			vs.frame_count = len(self._stream_indices[vs.stream_num])
+			self._log_obj(vs)
+
 	def _parse_hdrl(self):
 		self._require_chunk(_LIST, "hdrl")
 		avih = self._require_chunk("avih")
@@ -195,6 +244,8 @@ class AviFile(object):
 		self._log("File header")
 		self._log_obj(self.file_header)
 
+		self.video_streams = [ ]
+		self._stream_data = [ ]
 		while self._parse_stream():
 			pass
 
@@ -243,6 +294,14 @@ class AviFile(object):
 		else:
 			self._put_back(c)
 
+		if bitmap_info is not None:
+			self.video_streams.append(VideoStream(
+				self,
+				len(self._stream_data),
+				bitmap_info.Width, bitmap_info.Height,
+				0,
+				stream_header.Rate / float(stream_header.Scale) ))
+
 		self._stream_data.append(_StreamInfo(
 			stream_header, bitmap_info, codec_data, stream_name))
 
@@ -257,21 +316,21 @@ class AviFile(object):
 
 		self._log("idx1 present")
 
-		vi = collections.defaultdict(list)
+		si = collections.defaultdict(list)
 		entry_count = int(idx1.content_length / float(OldIndexEntry.size()))
 		for n in xrange(0, entry_count):
 			entry = OldIndexEntry.from_stream(self._file)
 			if entry.Flags & IF_LIST == 0:
-				stream_index, frame_type = _unpack_frame_fcc(entry.ChunkId)
-				if stream_index is not None:
-					vi[stream_index].append(IndexPointer(
+				stream_num, frame_type = _unpack_frame_fcc(entry.ChunkId)
+				if stream_num is not None:
+					si[stream_num].append(_IndexPointer(
 						entry.ChunkId,
 						entry.Flags,
 						entry.Offset,
 						entry.Size))
 
 					self._log("#{0}: {1}",
-						stream_index,
+						stream_num,
 						pprint.pformat(entry.__dict__))
 
 		# skip any slack space at the end of the idx1 data
@@ -279,15 +338,15 @@ class AviFile(object):
 			idx1.file_length - entry_count * OldIndexEntry.size(),
 			os.SEEK_CUR)
 
-		self._video_indices = vi
+		self._stream_indices = si
 		return True
 
 	def _check_index_offsets(self):
-		for index, track in self._video_indices.iteritems():
+		for index, track in self._stream_indices.iteritems():
 			if len(track) > 0:
 				f = track[0]
 				self._file.seek(self._movi_offset + f.offset)
-				if self._file.read(4) != f.id:
+				if self._file.read(4) != f.chunk_id:
 					print "Fixing offsets for track #{0}".format(index)
 					for g in track:
 						g.offset -= self._movi_offset
@@ -295,7 +354,7 @@ class AviFile(object):
 					print "Offsets for track #{0} are correct".format(index)
 
 	def _build_index(self):
-		vi = collections.defaultdict(list)
+		si = collections.defaultdict(list)
 
 		self._file.seek(self._movi_offset, os.SEEK_SET)
 
@@ -307,14 +366,16 @@ class AviFile(object):
 			if c is None:
 				break
 			elif c.fcc != _LIST:
-				stream_index, frame_type = _unpack_frame_fcc(c.fcc)
-				if stream_index is not None:
-					vi[stream_index].append(IndexPointer(
+				stream_num, frame_type = _unpack_frame_fcc(c.fcc)
+				if stream_num is not None:
+					si[stream_num].append(_IndexPointer(
 						c.fcc,
 						0,
 						self._file.tell() - c.header_size,
 						c.content_length))
 				self._skip_chunk(c)
+
+		self._stream_indices = si
 
 	def _read_struct_chunk(self, chunk, named_struct):
 		s = named_struct.from_stream(self._file)

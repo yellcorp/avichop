@@ -7,8 +7,9 @@ import Avi
 
 
 def test_avi(stream):
-	a = Avi.AviFile(stream, debug=True)
+	a = Avi.AviInput(stream, debug=True)
 	a.parse()
+	print a.get_frame(0)
 
 
 def main():
