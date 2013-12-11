@@ -19,6 +19,7 @@ _SNAP_FPS_MAX = (_COMMON_FPS_NUM[-1] + _TOLERANCE) / _DEN
 
 
 def interpret_frame_rate(ufps):
+	ufps = float(ufps)
 	if ufps < _SNAP_FPS_MIN or ufps > _SNAP_FPS_MAX:
 		return ufps
 	bfps = ufps * _DEN
