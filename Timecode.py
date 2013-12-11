@@ -19,6 +19,8 @@ _SNAP_FPS_MAX = (_COMMON_FPS_NUM[-1] + _TOLERANCE) / _DEN
 
 
 def interpret_frame_rate(ufps):
+	"""Adjusts a frame rate, expressed as frames per second, to a common
+	standard if one closely matches."""
 	ufps = float(ufps)
 	if ufps < _SNAP_FPS_MIN or ufps > _SNAP_FPS_MAX:
 		return ufps
@@ -43,9 +45,25 @@ def _sum_frames(units, fps):
 	return frames
 
 
-# when is_drop_frame is None, it will be auto-detected, which means drop frame
-# timecodes will be assumed if the seconds/frames separator is a ; or a .
 def parse_timecode(t, fps, is_drop_frame=None):
+	"""Parses a timecode, returning the result as a frame number.
+
+	Keyword arguments:
+	t -- The timecode to parse, a string containing numbers separated by ':',
+		';' or '.'.  Up to 5 numbers will be parsed, representing, from left to
+		right, days, hours, minutes, seconds and frames.  The string can contain
+		contiguous separators, in which case the number between them will be
+		interpreted as zero.
+	fps -- The number of frames per second.
+	is_drop_frame -- Whether to consider this timecode to be drop-frame. This
+		will only be considered if fps is close to 29.97, in which case possible
+		values are:
+			True -- Timecode is drop-frame
+			False -- Timecode is not drop-frame
+			None (default) -- Auto-detect based on the separators in the
+				timecode string. The timecode will be considered drop-frame if
+				the separator between seconds and frames is ';' or '.'.
+	"""
 	fps = interpret_frame_rate(fps)
 
 	negative = False
