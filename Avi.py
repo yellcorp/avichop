@@ -20,7 +20,7 @@ _LIST_TYPES = frozenset(("RIFF", "LIST"))
 _VFRAME_ID_PATTERN = re.compile(r"^(\d\d)(d[bc])$")
 _VFRAME_ID_FORMAT = "{0:02d}{1:2s}"
 
-_INCHES_PER_METER = 0.0254
+_METERS_PER_INCH = 0.0254
 
 
 F_HASINDEX =        0x00000010
@@ -412,7 +412,7 @@ class AviOutput(object):
 		bih.BitCount = vs.bit_depth
 		bih.Compression = vs.compression
 		bih.SizeImage = vs.size_image
-		bih.XPelsPerMeter = round(72 / _INCHES_PER_METER)
+		bih.XPelsPerMeter = round(72 / _METERS_PER_INCH)
 		bih.YPelsPerMeter = bih.XPelsPerMeter
 		bih.ClrUsed = 0
 		bih.ClrImportant = 0
