@@ -15,10 +15,11 @@ import sys
 _RIFF = "RIFF"
 _LIST = "LIST"
 _JUNK = "JUNK"
+_AVI  = "AVI "
 
 _LIST_TYPES = frozenset((_RIFF, _LIST))
 
-_VFRAME_ID = re.compile(r"^(\d\d)(d[bc])$")
+_VFRAME_ID_PATTERN = re.compile(r"^(\d\d)(d[bc])$")
 
 
 F_HASINDEX =        0x00000010
@@ -107,7 +108,7 @@ _IndexPointer = collections.namedtuple("_IndexPointer",
 	("chunk_id", "flags", "offset", "size"))
 
 
-_StreamInfo = collections.namedtuple("_StreamInfo",
+StreamInfo = collections.namedtuple("StreamInfo",
 	("header", "bitmap_info", "codec_data", "name"))
 
 
@@ -133,7 +134,7 @@ def _from_asciiz(s):
 
 
 def _unpack_frame_fcc(fcc):
-	match = _VFRAME_ID.match(fcc)
+	match = _VFRAME_ID_PATTERN.match(fcc)
 	if match is None:
 		return (None, None)
 	return (int(match.group(1)), match.group(2))
@@ -222,7 +223,7 @@ class AviInput(object):
 		return AviFrame(frame_num, frame_type, frame_info.flags, data)
 
 	def _parse(self):
-		self._require_chunk(_RIFF, "AVI ")
+		self._require_chunk(_RIFF, _AVI)
 		self._parse_hdrl()
 
 		movi = self._require_chunk(_LIST, "movi")
@@ -304,7 +305,7 @@ class AviInput(object):
 				0,
 				stream_header.Rate / float(stream_header.Scale) ))
 
-		self._stream_data.append(_StreamInfo(
+		self._stream_data.append(StreamInfo(
 			stream_header, bitmap_info, codec_data, stream_name))
 
 		return True
