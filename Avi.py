@@ -17,6 +17,9 @@ _4CC_NULL = "\x00" * 4
 _LIST_TYPES = frozenset(("RIFF", "LIST"))
 
 _VFRAME_ID_PATTERN = re.compile(r"^(\d\d)(d[bc])$")
+_VFRAME_ID_FORMAT = "{0:02d}{1:2s}"
+
+_INCHES_PER_METER = 0.0254
 
 
 F_HASINDEX =        0x00000010
@@ -187,6 +190,11 @@ class VideoStream(object):
 		return Timecode.parse_timecode(timecode, self.frame_rate)
 
 
+class OutputVideoStream(VideoStream):
+	def write_frame(self, avi_frame):
+		self._owner.write_stream_frame(self.stream_num, avi_frame)
+
+
 class InputVideoStream(VideoStream):
 	def get_frame(self, frame_num=None, seconds=None, timecode=None):
 		if timecode is not None:
@@ -195,6 +203,219 @@ class InputVideoStream(VideoStream):
 			frame_num = self.seconds_to_frame(seconds)
 
 		return self._owner.get_stream_frame(self.stream_num, frame_num)
+
+
+class _AbsoluteField(object):
+	def __init__(self, bytestream, pos=None):
+		self._file = bytestream
+		if pos is None:
+			pos = bytestream.tell()
+		self._pos = pos
+
+	def update(self, data):
+		self._file.seek(self._pos, os.SEEK_SET)
+		self._file.write(data)
+		self._file.seek(0, os.SEEK_END)
+
+
+class _ChunkWriter(object):
+	def __init__(self, bytestream, chunk_fcc, list_fcc=None):
+		self._file = bytestream
+		self._chunk_fcc = chunk_fcc
+		self._list_fcc = list_fcc
+		self._start_pos = bytestream.tell()
+		self._write_header(0)
+
+	def _write_header(self, byte_count):
+		self._file.seek(self._start_pos)
+		self._file.write(struct.pack(
+			"<4sI", self._chunk_fcc, byte_count))
+		if self._list_fcc is not None:
+			self._file.write(self._list_fcc)
+		self._file.seek(0, os.SEEK_END)
+		
+	def close(self):
+		bytes_written = self._file.tell() - self._start_pos - 8
+		if bytes_written & 1:
+			# needs to be aligned to 2-bytes, but don't reflect this in the
+			# length field
+			self._file.write("\x00")
+		self._write_header(bytes_written)
+		self._file = None
+
+
+class _OutputStreamState(object):
+	def __init__(self):
+		self.header_field = None
+		self.bitmap_info_field = None
+
+
+class AviOutput(object):
+	def __init__(self, bytestream):
+		self._file = bytestream
+		self._riff = self._new_chunk("RIFF", "AVI ")
+
+		self._avih_field = None
+
+		self._movi = None
+		self._movi_offset = None
+
+		self.frame_rate = 0.0
+		self.max_bytes_per_sec = 0
+
+		self.width = 0
+		self.height = 0
+
+		self.video_streams = [ ]
+		self._stream_states = None
+		self._frame_index = bytearray()
+
+	def microseconds_per_frame(self):
+		return round(1e6 / Timecode.interpret_frame_rate(self.frame_rate))
+
+	def new_stream(self, basis_stream=None):
+		vs = OutputVideoStream(self)
+
+		if basis_stream is not None:
+			vs.set_from(basis_stream)
+
+		vs.stream_num = len(self.video_streams)
+		vs.width = self.width
+		vs.height = self.height
+		vs.frame_rate = self.frame_rate
+		self.video_streams.append(vs)
+		return vs
+
+	def write_frame(self, avi_frame):
+		self.video_streams[0].write_frame(avi_frame)
+
+	def write_stream_frame(self, stream_num, avi_frame):
+		if self._avih_field is None:
+			self._write_hdrl()
+		if self._movi is None:
+			self._begin_movi()
+
+		chunk_name = _VFRAME_ID_FORMAT.format(stream_num, avi_frame.frame_type)
+		offset = self._file.tell()
+
+		chunk = self._new_chunk(chunk_name)
+		self._file.write(avi_frame.data)
+		chunk.close()
+
+		e = OldIndexEntry()
+		e.ChunkId = chunk_name
+		e.Flags = avi_frame.flags
+		e.Offset = offset - self._movi_offset
+		e.Size = len(avi_frame.data)
+
+		self._frame_index.extend(e.pack())
+
+		self.video_streams[stream_num].frame_count += 1
+
+	def close(self):
+		if self._movi:
+			self._movi.close()
+			self._movi = None
+		self._write_index()
+		self._update_main_header()
+		self._update_stream_headers()
+		self._riff.close()
+		self._riff = None
+
+	def _update_main_header(self):
+		h = MainHeader()
+		h.MicroSecPerFrame = self.microseconds_per_frame()
+		h.MaxBytesPerSec = self.max_bytes_per_sec
+		h.PaddingGranularity = 0
+		h.Flags = F_HASINDEX | F_ISINTERLEAVED
+		h.TotalFrames = sum(vs.frame_count for vs in self.video_streams)
+		h.InitialFrames = 0
+		h.Streams = len(self.video_streams)
+		h.SuggestedBufferSize = max(vs.suggested_buffer_size for vs in self.video_streams)
+		h.Width = self.width
+		h.Height = self.height
+
+		self._avih_field.update(h.pack())
+
+	def _write_hdrl(self):
+		hdrl = self._new_chunk("LIST", "hdrl")
+		self._avih_field = self._alloc_struct_chunk("avih", MainHeader)
+		self._stream_states = map(self._alloc_strl, self.video_streams)
+		hdrl.close()
+
+	def _alloc_strl(self, vs):
+		state = _OutputStreamState()
+
+		strl = self._new_chunk("LIST", "strl")
+		state.header_field = self._alloc_struct_chunk("strh", StreamHeader)
+		state.bitmap_info_field = self._alloc_struct_chunk("strf", BitmapInfoHeader)
+		if vs.codec_data is not None:
+			strd = self._new_chunk("strd")
+			self._file.write(vs.codec_data)
+			strd.close()
+		strl.close()
+
+		return state
+
+	def _update_stream_headers(self):
+		for vs, state in zip(self.video_streams, self._stream_states):
+			self._update_stream_header(vs, state)
+
+	def _update_stream_header(self, vs, state):
+		sh = StreamHeader()
+		sh.fccType = "vids"
+		sh.fccHandler = vs.codec
+		sh.Flags = 0
+		sh.Priority = 0
+		sh.Language = 0
+		sh.InitialFrames = 0
+		sh.Scale = 1e3
+		sh.Rate = int(vs.frame_rate * 1e3)
+		sh.Start = 0
+		sh.Length = vs.frame_count
+		sh.SuggestedBufferSize = vs.suggested_buffer_size
+		sh.Quality = 10000
+		sh.SampleSize = 0
+		sh.left = 0
+		sh.top = 0
+		sh.right = vs.width
+		sh.bottom = vs.height
+
+		state.header_field.update(sh.pack())
+
+		bih = BitmapInfoHeader()
+		bih.Size = BitmapInfoHeader.size()
+		bih.Width = vs.width
+		bih.Height = vs.height
+		bih.Planes = 1
+		bih.BitCount = vs.bit_depth
+		bih.Compression = vs.compression
+		bih.SizeImage = vs.size_image
+		bih.XPelsPerMeter = round(72 / _INCHES_PER_METER)
+		bih.YPelsPerMeter = bih.XPelsPerMeter
+		bih.ClrUsed = 0
+		bih.ClrImportant = 0
+
+		state.bitmap_info_field.update(bih.pack())
+
+	def _begin_movi(self):
+		self._movi = self._new_chunk("LIST", "movi")
+		self._movi_offset = self._file.tell() - 4
+
+	def _write_index(self):
+		idx1 = self._new_chunk("idx1")
+		self._file.write(self._frame_index)
+		idx1.close()
+
+	def _alloc_struct_chunk(self, fcc, named_struct):
+		chunk = self._new_chunk(fcc)
+		field = _AbsoluteField(self._file)
+		self._file.write(named_struct().pack())
+		chunk.close()
+		return field
+
+	def _new_chunk(self, chunk_fcc, list_fcc=None):
+		return _ChunkWriter(self._file, chunk_fcc, list_fcc)
 
 
 class AviInput(object):
