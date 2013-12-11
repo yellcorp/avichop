@@ -292,7 +292,7 @@ class AviFile(object):
 					for g in track:
 						g.offset -= self._movi_offset
 				else:
-					print "Offset for track #{0} are correct".format(index)
+					print "Offsets for track #{0} are correct".format(index)
 
 	def _build_index(self):
 		vi = collections.defaultdict(list)
