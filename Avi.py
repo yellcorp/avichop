@@ -158,13 +158,27 @@ def _null_func(*args, **kwargs):
 
 
 class VideoStream(object):
-	def __init__(self, owner, stream_num, width, height, frame_count, frame_rate):
+	def __init__(self, owner):
 		self._owner = owner
-		self.stream_num = stream_num
-		self.width = width
-		self.height = height
-		self.frame_count = frame_count
-		self.frame_rate = Timecode.interpret_frame_rate(frame_rate)
+
+		self.stream_num = -1
+		self.width = 0
+		self.height = 0
+		self.frame_rate = 0.0
+		self.frame_count = 0
+
+		self.codec = "\x00" * 4
+		self.codec_data = None
+		self.suggested_buffer_size = 0
+		self.bit_depth = 0
+		self.compression = "\x00" * 4
+		self.size_image = 0
+
+	def set_from(self, other_stream):
+		for field in ("width", "height", "frame_rate", "codec", "codec_data",
+				"suggested_buffer_size", "bit_depth", "compression",
+				"size_image"):
+			setattr(self, field, getattr(other_stream, field))
 
 	def duration(self):
 		return self.frame_count / self.frame_rate
@@ -175,6 +189,8 @@ class VideoStream(object):
 	def timecode_to_frame(self, timecode):
 		return Timecode.parse_timecode(timecode, self.frame_rate)
 
+
+class InputVideoStream(VideoStream):
 	def get_frame(self, frame_num=None, seconds=None, timecode=None):
 		if timecode is not None:
 			frame_num = self.timecode_to_frame(timecode)
@@ -301,12 +317,22 @@ class AviInput(object):
 			self._put_back(c)
 
 		if bitmap_info is not None:
-			self.video_streams.append(VideoStream(
-				self,
-				len(self._stream_data),
-				bitmap_info.Width, bitmap_info.Height,
-				0,
-				stream_header.Rate / float(stream_header.Scale) ))
+			vs = InputVideoStream(self)
+
+			vs.stream_num = len(self._stream_data)
+			vs.width = bitmap_info.Width
+			vs.height = bitmap_info.Height
+			vs.frame_rate = Timecode.interpret_frame_rate(
+				stream_header.Rate / float(stream_header.Scale))
+
+			vs.codec = stream_header.fccHandler
+			vs.codec_data = codec_data
+			vs.suggested_buffer_size = stream_header.SuggestedBufferSize
+			vs.bit_depth = bitmap_info.BitCount
+			vs.compression = bitmap_info.Compression
+			vs.size_image = bitmap_info.SizeImage
+
+			self.video_streams.append(vs)
 
 		self._stream_data.append(StreamInfo(
 			stream_header, bitmap_info, codec_data, stream_name))
