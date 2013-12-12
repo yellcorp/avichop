@@ -1,0 +1,10 @@
+# first get that video into xvid/avi format
+ffmpeg -ss START_TIME -i ORIGINAL_VID -t DURATION -c:v libxvid -an -b:v 16000k -g 500 XVID_SOURCE.avi 
+# START_TIME and DURATION are in HH:MM:SS.mmm
+# b:v is the bandwidth
+# g is the GOP length - number of frames between key frames
+
+# then do whatever
+
+# then render it and encode the mess reliably
+ffmpeg -i XVID_GLITCHED.avi -c:v qtrle GLITCHED.mov
