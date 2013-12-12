@@ -6,25 +6,32 @@ import sys
 import Avi
 
 
+def repeat_some(src, dest):
+	def repeat_count_for_frame(f):
+		if f == 73:
+			return 15
+		return 1
+
+	for f in xrange(0, src.frame_count):
+		for x in xrange(0, repeat_count_for_frame(f)):
+			frame = src.get_frame(f)
+			dest.write_frame(frame)
+
+
 def glitch_avi(in_stream, out_stream):
 	in_avi = Avi.AviInput(in_stream, debug=True)
 	out_avi = Avi.AviOutput(out_stream, debug=True)
 
 	out_avi.max_bytes_per_sec = in_avi.max_bytes_per_sec
 
-	in_v = in_avi.video_streams[0]
-	out_avi.frame_rate = in_v.frame_rate
-	out_avi.width = in_v.width
-	out_avi.height = in_v.height
+	src = in_avi.video_streams[0]
+	out_avi.frame_rate = src.frame_rate
+	out_avi.width = src.width
+	out_avi.height = src.height
 
-	out_v = out_avi.new_stream(in_v)
+	dest = out_avi.new_stream(src)
 
-	repeat_frame_num = int(7.15 * 30)
-	for f in xrange(0, in_v.frame_count):
-		frame = in_v.get_frame(f)
-		repeat_count = 1
-		for x in xrange(0, f == repeat_frame_num and 30 or 1):
-			out_v.write_frame(frame)
+	repeat_some(src, dest)
 
 	out_avi.close()
 
