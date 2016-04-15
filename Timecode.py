@@ -39,7 +39,7 @@ def interpret_frame_rate(ufps):
 def _sum_frames(units, fps):
 	frames = 0
 	factor = 1
-	for u, f in zip(units, (1, fps, 60, 60, 24)):
+	for u, f in zip(units, (1, fps, 60, 60)):
 		factor *= f
 		frames += u * factor
 	return frames
@@ -50,8 +50,8 @@ def parse_timecode(t, fps, is_drop_frame=None):
 
 	Keyword arguments:
 	t -- The timecode to parse, a string containing numbers separated by ':',
-		';' or '.'.  Up to 5 numbers will be parsed, representing, from left to
-		right, days, hours, minutes, seconds and frames.  The string can contain
+		';' or '.'.  Up to 4 numbers will be parsed, representing, from left to
+		right, hours, minutes, seconds and frames.  The string can contain
 		contiguous separators, in which case the number between them will be
 		interpreted as zero.
 	fps -- The number of frames per second.
