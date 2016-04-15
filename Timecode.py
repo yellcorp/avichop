@@ -70,7 +70,7 @@ def parse_timecode(t, fps, is_drop_frame=None):
 
 	if t[0] == "-":
 		negative = True
-		t.pop(0)
+		t = t[1:]
 
 	parts = re.split(r"([:;.])", t)
 
