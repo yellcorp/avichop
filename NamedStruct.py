@@ -1,3 +1,5 @@
+# TODO: just use ctypes
+
 import struct
 
 class NamedStruct(object):
