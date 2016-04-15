@@ -361,7 +361,7 @@ class AviOutput(object):
 	def _write_hdrl(self):
 		hdrl = self._new_chunk("LIST", "hdrl")
 		self._avih_field = self._alloc_struct_chunk("avih", MainHeader)
-		self._stream_states = map(self._alloc_strl, self.video_streams)
+		self._stream_states = [ self._alloc_strl(s) for s in self.video_streams ]
 		hdrl.close()
 
 	def _alloc_strl(self, vs):
@@ -440,7 +440,7 @@ class AviOutput(object):
 
 
 def _default_log_func(m):
-	print >> sys.stderr, m
+	print(m, file=sys.stderr)
 
 class _Logger(object):
 	def __init__(self, log_func=None):
@@ -621,7 +621,7 @@ class AviInput(object):
 
 		si = collections.defaultdict(list)
 		entry_count = int(idx1.content_length / float(OldIndexEntry.size()))
-		for n in xrange(0, entry_count):
+		for n in range(0, entry_count):
 			entry = OldIndexEntry.from_stream(self._file)
 			if entry.Flags & IF_LIST == 0:
 				stream_num, frame_type = _unpack_frame_fcc(entry.ChunkId)
@@ -645,16 +645,16 @@ class AviInput(object):
 		return True
 
 	def _check_index_offsets(self):
-		for index, track in self._stream_indices.iteritems():
+		for index, track in self._stream_indices.items():
 			if len(track) > 0:
 				f = track[0]
 				self._file.seek(self._movi_offset + f.offset)
 				if self._file.read(4) != f.chunk_id:
-					print "Fixing offsets for track #{0}".format(index)
+					print("Fixing offsets for track #{0}".format(index))
 					for g in track:
 						g.offset -= self._movi_offset
 				else:
-					print "Offsets for track #{0} are correct".format(index)
+					print("Offsets for track #{0} are correct".format(index))
 
 	def _build_index(self):
 		si = collections.defaultdict(list)

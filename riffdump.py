@@ -30,7 +30,7 @@ def read_chunk(stream):
 
 def dump_fields(names, values):
 	for n, v in zip(names, values):
-		print " {0} = {1!r}".format(n, v)
+		print(" {0} = {1!r}".format(n, v))
 
 
 DUMP_FORMAT = "{indent}{type}: {id!r} {size}"
@@ -41,11 +41,11 @@ def dump(stream):
 			return
 		if fourcc in list_types:
 			list_type = read_4cc(stream)
-			print "{fourcc!r} {size} {list_type!r}".format(
-				fourcc=fourcc, size=size, list_type=list_type)
+			print("{fourcc!r} {size} {list_type!r}".format(
+				fourcc=fourcc, size=size, list_type=list_type))
 		else:
-			print "{fourcc!r} {size}".format(
-				fourcc=fourcc, size=size)
+			print("{fourcc!r} {size}".format(
+				fourcc=fourcc, size=size))
 
 			# chunks must be 2-byte aligned?
 			if size & 1:

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 
 import sys
@@ -19,7 +19,7 @@ def copy_avi(in_stream, out_stream):
 
 	out_v = out_avi.new_stream(in_v)
 
-	for f in xrange(0, in_v.frame_count):
+	for f in range(0, in_v.frame_count):
 		out_v.write_frame(in_v.get_frame(f))
 
 	out_avi.close()

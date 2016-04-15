@@ -1,7 +1,7 @@
 import re
 
 
-_DEN = 1001000.0
+_DENOMINATOR = 1001000
 _COMMON_FPS_NUM = (
 	24000000,  # 23.976
 	24024000,  # 24
@@ -14,8 +14,8 @@ _COMMON_FPS_NUM = (
 	)
 
 _TOLERANCE = 900
-_SNAP_FPS_MIN = (_COMMON_FPS_NUM[0] - _TOLERANCE) / _DEN
-_SNAP_FPS_MAX = (_COMMON_FPS_NUM[-1] + _TOLERANCE) / _DEN
+_SNAP_FPS_MIN = (_COMMON_FPS_NUM[0] - _TOLERANCE) / _DENOMINATOR
+_SNAP_FPS_MAX = (_COMMON_FPS_NUM[-1] + _TOLERANCE) / _DENOMINATOR
 
 
 def interpret_frame_rate(ufps):
@@ -93,8 +93,8 @@ def parse_timecode(t, fps, is_drop_frame=None):
 	frame_n = _sum_frames(units, ref_fps)
 
 	if is_drop_frame:
-		single_minutes = int(frame_n / 1800.0)
-		ten_minutes = int(frame_n / 18000.0)
+		single_minutes = int(frame_n / 1800)
+		ten_minutes = int(frame_n / 18000)
 		frame_n += 2 * (ten_minutes - single_minutes)
 
 	if negative:

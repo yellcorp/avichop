@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 
 import sys
@@ -12,8 +12,8 @@ def repeat_some(src, dest):
 			return 15
 		return 1
 
-	for f in xrange(0, src.frame_count):
-		for x in xrange(0, repeat_count_for_frame(f)):
+	for f in range(0, src.frame_count):
+		for x in range(0, repeat_count_for_frame(f)):
 			frame = src.get_frame(f)
 			dest.write_frame(frame)
 
