@@ -52,11 +52,11 @@ def dump(stream):
                 size += 1
 
             if fourcc == "avih":
-                header = MainHeader.from_stream(stream)
-                pprint(header.__dict__)
+                main_header = MainHeader.from_stream(stream)
+                pprint(main_header.__dict__)
             elif fourcc == "strh":
-                header = StreamHeader.from_stream(stream)
-                pprint(header.__dict__)
+                stream_header = StreamHeader.from_stream(stream)
+                pprint(stream_header.__dict__)
             elif fourcc == "idx1":
                 while size > 0:
                     entry = OldIndexEntry.from_stream(stream)

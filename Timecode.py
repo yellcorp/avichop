@@ -83,7 +83,7 @@ def parse_timecode(t, fps, is_drop_frame=None):
         is_drop_frame = False
 
     if is_drop_frame:
-        ref_fps = 30
+        ref_fps = 30.0
     else:
         ref_fps = fps
 
