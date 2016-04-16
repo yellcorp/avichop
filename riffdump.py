@@ -2,8 +2,9 @@
 
 
 from Avi import MainHeader, StreamHeader, OldIndexEntry
+from ctypesutil import read_structure
 
-
+from ctypes import sizeof
 from pprint import pprint
 import os
 import struct
@@ -52,16 +53,16 @@ def dump(stream):
                 size += 1
 
             if fourcc == "avih":
-                main_header = MainHeader.from_stream(stream)
+                main_header = read_structure(stream, MainHeader)
                 pprint(main_header.__dict__)
             elif fourcc == "strh":
-                stream_header = StreamHeader.from_stream(stream)
+                stream_header = read_structure(stream, StreamHeader)
                 pprint(stream_header.__dict__)
             elif fourcc == "idx1":
                 while size > 0:
-                    entry = OldIndexEntry.from_stream(stream)
+                    entry = read_structure(stream, OldIndexEntry)
                     pprint(entry.__dict__)
-                    size -= OldIndexEntry.size()
+                    size -= sizeof(OldIndexEntry)
             else:
                 stream.seek(size, os.SEEK_CUR)
 

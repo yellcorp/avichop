@@ -1,6 +1,7 @@
+from ctypesutil import read_structure
 import Timecode
 
-from ctypes import LittleEndianStructure, c_char, c_int32, c_uint16, c_uint32
+from ctypes import LittleEndianStructure, c_char, c_int32, c_uint16, c_uint32, sizeof
 import collections
 import math
 import os
@@ -406,7 +407,7 @@ class AviOutput(object):
         state.header_field.update(sh.pack())
 
         bih = BitmapInfoHeader()
-        bih.Size = BitmapInfoHeader.size()
+        bih.Size = sizeof(BitmapInfoHeader)
         bih.Width = vs.width
         bih.Height = vs.height
         bih.Planes = 1
@@ -621,9 +622,9 @@ class AviInput(object):
         self._log.write("idx1 present")
 
         si = collections.defaultdict(list)
-        entry_count = int(idx1.content_length / float(OldIndexEntry.size()))
+        entry_count = idx1.content_length // sizeof(OldIndexEntry)
         for _ in range(entry_count):
-            entry = OldIndexEntry.from_stream(self._file)
+            entry = self._read_struct(OldIndexEntry)
             if entry.Flags & IF_LIST == 0:
                 stream_num, _ = _unpack_frame_fcc(entry.ChunkId)
                 if stream_num is not None:
@@ -639,7 +640,7 @@ class AviInput(object):
 
         # skip any slack space at the end of the idx1 data
         self._file.seek(
-            idx1.file_length - entry_count * OldIndexEntry.size(),
+            idx1.file_length - entry_count * sizeof(OldIndexEntry),
             os.SEEK_CUR)
 
         self._stream_indices = si
@@ -681,12 +682,15 @@ class AviInput(object):
 
         self._stream_indices = si
 
-    def _read_struct_chunk(self, chunk, named_struct):
-        s = named_struct.from_stream(self._file)
-        slack = chunk.file_length - named_struct.size()
+    def _read_struct(self, structure_cls):
+        return read_structure(self._file, structure_cls)
+
+    def _read_struct_chunk(self, chunk, structure_cls):
+        structure = self._read_struct(structure_cls)
+        slack = chunk.file_length - sizeof(structure_cls)
         if slack > 0:
             self._file.seek(slack, os.SEEK_CUR)
-        return s
+        return structure
 
     def _read_chunk_content(self, chunk):
         return self._file.read(chunk.file_length)[:chunk.content_length]
