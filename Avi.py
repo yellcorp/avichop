@@ -13,9 +13,10 @@ import sys
 # http://www.alexander-noe.com/video/documentation/avi.pdf
 
 
-_4CC_NULL = "\x00" * 4
+_CP_WINDOWS = "cp1252"
 
-_LIST_TYPES = frozenset(("RIFF", "LIST"))
+_LIST_TYPES = frozenset((b"RIFF", b"LIST"))
+_4CC_NULL = b"\x00" * 4
 
 _VFRAME_ID_PATTERN = re.compile(r"^(\d\d)(d[bc])$")
 _VFRAME_ID_FORMAT = "{0:02d}{1:2s}"
@@ -127,15 +128,15 @@ def _expect_equal(noun, expect, got):
             noun, expect, got))
 
 
-def _from_asciiz(s):
-    z = s.find("\x00")
-    if z >= 0:
-        s = s[:z]
-    return s.decode("cp1252")
+def _from_asciiz(byte_string):
+    null_pos = byte_string.find(0)
+    if null_pos >= 0:
+        byte_string = byte_string[:null_pos]
+    return byte_string.decode(_CP_WINDOWS)
 
 
 def _unpack_frame_fcc(fcc):
-    match = _VFRAME_ID_PATTERN.match(fcc)
+    match = _VFRAME_ID_PATTERN.match(fcc.decode(_CP_WINDOWS))
     if match is None:
         return (None, None)
     return (int(match.group(1)), match.group(2))
@@ -249,7 +250,7 @@ class _ChunkWriter(object):
         if bytes_written & 1:
             # needs to be aligned to 2-bytes, but don't reflect this in the
             # length field
-            self._file.write("\x00")
+            self._file.write(b"\0")
         self._write_header(bytes_written)
         self._file = None
 
@@ -263,7 +264,7 @@ class _OutputStreamState(object):
 class AviOutput(object):
     def __init__(self, bytestream, debug=None):
         self._file = bytestream
-        self._riff = self._new_chunk("RIFF", "AVI ")
+        self._riff = self._new_chunk(b"RIFF", b"AVI ")
 
         self._avih_field = None
 
@@ -312,7 +313,7 @@ class AviOutput(object):
         if self._rate_monitor is None:
             self._rate_monitor = _RateMonitor(self.frame_rate, self.frame_rate * 0.5)
 
-        chunk_name = _VFRAME_ID_FORMAT.format(stream_num, avi_frame.frame_type)
+        chunk_name = _VFRAME_ID_FORMAT.format(stream_num, avi_frame.frame_type).encode(_CP_WINDOWS)
         offset = self._file.tell()
 
         chunk = self._new_chunk(chunk_name)
@@ -359,19 +360,19 @@ class AviOutput(object):
         self._avih_field.update(h.pack())
 
     def _write_hdrl(self):
-        hdrl = self._new_chunk("LIST", "hdrl")
-        self._avih_field = self._alloc_struct_chunk("avih", MainHeader)
+        hdrl = self._new_chunk(b"LIST", b"hdrl")
+        self._avih_field = self._alloc_struct_chunk(b"avih", MainHeader)
         self._stream_states = [ self._alloc_strl(s) for s in self.video_streams ]
         hdrl.close()
 
     def _alloc_strl(self, vs):
         state = _OutputStreamState()
 
-        strl = self._new_chunk("LIST", "strl")
-        state.header_field = self._alloc_struct_chunk("strh", StreamHeader)
-        state.bitmap_info_field = self._alloc_struct_chunk("strf", BitmapInfoHeader)
+        strl = self._new_chunk(b"LIST", b"strl")
+        state.header_field = self._alloc_struct_chunk(b"strh", StreamHeader)
+        state.bitmap_info_field = self._alloc_struct_chunk(b"strf", BitmapInfoHeader)
         if vs.codec_data is not None:
-            strd = self._new_chunk("strd")
+            strd = self._new_chunk(b"strd")
             self._file.write(vs.codec_data)
             strd.close()
         strl.close()
@@ -384,7 +385,7 @@ class AviOutput(object):
 
     def _update_stream_header(self, vs, state):
         sh = StreamHeader()
-        sh.fccType = "vids"
+        sh.fccType = b"vids"
         sh.fccHandler = vs.codec
         sh.Flags = 0
         sh.Priority = 0
@@ -420,11 +421,11 @@ class AviOutput(object):
         state.bitmap_info_field.update(bih.pack())
 
     def _begin_movi(self):
-        self._movi = self._new_chunk("LIST", "movi")
+        self._movi = self._new_chunk(b"LIST", b"movi")
         self._movi_offset = self._file.tell() - 4
 
     def _write_index(self):
-        idx1 = self._new_chunk("idx1")
+        idx1 = self._new_chunk(b"idx1")
         self._file.write(self._frame_index)
         idx1.close()
 
@@ -511,10 +512,10 @@ class AviInput(object):
         return AviFrame(frame_num, frame_type, frame_info.flags, data)
 
     def _parse(self):
-        self._require_chunk("RIFF", "AVI ")
+        self._require_chunk(b"RIFF", b"AVI ")
         self._parse_hdrl()
 
-        movi = self._find_chunk("LIST", "movi")
+        movi = self._find_chunk(b"LIST", b"movi")
         self._movi_offset = self._file.tell() - 4
         self._log.write("movi_offset = {0:x}", self._movi_offset)
         self._skip_chunk(movi)
@@ -529,8 +530,8 @@ class AviInput(object):
             self._log.writeobj(vs)
 
     def _parse_hdrl(self):
-        self._require_chunk("LIST", "hdrl")
-        avih = self._require_chunk("avih")
+        self._require_chunk(b"LIST", b"hdrl")
+        avih = self._require_chunk(b"avih")
         self.file_header = self._read_struct_chunk(avih, MainHeader)
         self.max_bytes_per_sec = self.file_header.MaxBytesPerSec
 
@@ -546,10 +547,10 @@ class AviInput(object):
         while True:
             strl = self._next_chunk()
             # search for next LIST/strl chunk
-            if strl.fcc == "LIST" and strl.sub_fcc == "strl":
+            if strl.fcc == b"LIST" and strl.sub_fcc == b"strl":
                 break
             # skip LIST/odml chunks
-            elif strl.fcc == "LIST" and strl.sub_fcc == "odml":
+            elif strl.fcc == b"LIST" and strl.sub_fcc == b"odml":
                 self._skip_chunk(strl)
             # back up if anything else is found
             else:
@@ -558,15 +559,15 @@ class AviInput(object):
 
         self._log.write("Stream definition #{0}".format(len(self._stream_data)))
 
-        strh = self._require_chunk("strh")
+        strh = self._require_chunk(b"strh")
         stream_header = self._read_struct_chunk(strh, StreamHeader)
 
         self._log.write("Stream header")
         self._log.writeobj(stream_header)
 
         bitmap_info = None
-        strf = self._require_chunk("strf")
-        if stream_header.fccType == "vids":
+        strf = self._require_chunk(b"strf")
+        if stream_header.fccType == b"vids":
             bitmap_info = self._read_struct_chunk(strf, BitmapInfoHeader)
             self._log.write("Bitmap info header")
             self._log.writeobj(bitmap_info)
@@ -575,13 +576,13 @@ class AviInput(object):
 
         codec_data = None
         c = self._next_chunk()
-        if c.fcc == "strd":
+        if c.fcc == b"strd":
             codec_data = self._read_chunk_content(c)
             self._log.write("Codec data: {0} bytes", len(codec_data))
             c = self._next_chunk()
 
         stream_name = None
-        if c.fcc == "strn":
+        if c.fcc == b"strn":
             stream_name = _from_asciiz(self._read_chunk_content(c))
             self._log.write("Stream name: {0!r}", stream_name)
         else:
@@ -612,7 +613,7 @@ class AviInput(object):
 
     def _parse_idx1(self):
         idx1 = self._next_chunk()
-        if idx1.fcc != "idx1":
+        if idx1.fcc != b"idx1":
             self._log.write("idx1 not present")
             self._put_back(idx1)
             return False
@@ -662,13 +663,13 @@ class AviInput(object):
         self._file.seek(self._movi_offset, os.SEEK_SET)
 
         check = self._file.read(4)
-        assert check == "movi", "_movi_offset should point to 'movi' string"
+        assert check == b"movi", "_movi_offset should point to 'movi' string"
 
         while True:
             c = self._next_chunk()
             if c is None:
                 break
-            elif c.fcc != "LIST":
+            elif c.fcc != b"LIST":
                 stream_num, _ = _unpack_frame_fcc(c.fcc)
                 if stream_num is not None:
                     si[stream_num].append(_IndexPointer(
@@ -694,7 +695,7 @@ class AviInput(object):
         c = self._next_chunk()
         _expect_equal("chunk", fcc, c.fcc)
         if sub_fcc is not None:
-            _expect_equal("list", sub_fcc, c.sub_fcc)
+            _expect_equal(b"list", sub_fcc, c.sub_fcc)
         return c
 
     def _find_chunk(self, fcc, sub_fcc=None):
@@ -715,7 +716,7 @@ class AviInput(object):
             fcc, content_length = struct.unpack("<4sI", h)
             file_length = content_length + (content_length & 1)
 
-            if fcc == "JUNK":
+            if fcc == b"JUNK":
                 self._file.seek(file_length, os.SEEK_CUR)
             else:
                 list_fcc = None
