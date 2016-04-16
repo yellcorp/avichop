@@ -6,10 +6,26 @@ import sys
 import Avi
 
 
+def bounce(low, high, times):
+	for r in xrange(0, times):
+		for n in xrange(low, high):
+			yield n
+		for n in xrange(high, low, -1):
+			yield n
+
+
+def benedict(src, dest):
+	for f in xrange(0, 6):
+		dest.write_frame(src.get_frame(f))
+	for r in xrange(0, 12):
+		for f in xrange(3, 6):
+			dest.write_frame(src.get_frame(f))
+
+
 def repeat_some(src, dest):
 	def repeat_count_for_frame(f):
-		if f == 73:
-			return 15
+		if f >= 2:
+			return f
 		return 1
 
 	for f in xrange(0, src.frame_count):
@@ -31,7 +47,8 @@ def glitch_avi(in_stream, out_stream):
 
 	dest = out_avi.new_stream(src)
 
-	repeat_some(src, dest)
+	# repeat_some(src, dest)
+	benedict(src, dest)
 
 	out_avi.close()
 
