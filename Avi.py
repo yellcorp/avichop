@@ -1,6 +1,6 @@
-from NamedStruct import NamedStruct
 import Timecode
 
+from ctypes import LittleEndianStructure, c_char, c_int32, c_uint16, c_uint32
 import collections
 import math
 import os
@@ -30,43 +30,43 @@ F_TRUSTCKTYPE =     0x00000800
 F_WASCAPTUREFILE =  0x00010000
 F_COPYRIGHTED =     0x00020000
 
-class MainHeader(NamedStruct):
-    endian = "little"
-    fields = [
-        ("I",   "MicroSecPerFrame"),
-        ("I",   "MaxBytesPerSec"),
-        ("I",   "PaddingGranularity"),
-        ("I",   "Flags"),
-        ("I",   "TotalFrames"),
-        ("I",   "InitialFrames"),
-        ("I",   "Streams"),
-        ("I",   "SuggestedBufferSize"),
-        ("I",   "Width"),
-        ("I",   "Height"),
-        ("16s", "Reserved")
+class MainHeader(LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("MicroSecPerFrame",    c_uint32),
+        ("MaxBytesPerSec",      c_uint32),
+        ("PaddingGranularity",  c_uint32),
+        ("Flags",               c_uint32),
+        ("TotalFrames",         c_uint32),
+        ("InitialFrames",       c_uint32),
+        ("Streams",             c_uint32),
+        ("SuggestedBufferSize", c_uint32),
+        ("Width",               c_uint32),
+        ("Height",              c_uint32),
+        ("Reserved",            c_char * 16)
     ]
 
 
-class StreamHeader(NamedStruct):
-    endian = "little"
-    fields = [
-        ("4s", "fccType"),
-        ("4s", "fccHandler"),
-        ("I",  "Flags"),
-        ("H",  "Priority"),
-        ("H",  "Language"),
-        ("I",  "InitialFrames"),
-        ("I",  "Scale"),
-        ("I",  "Rate"),
-        ("I",  "Start"),
-        ("I",  "Length"),
-        ("I",  "SuggestedBufferSize"),
-        ("I",  "Quality"),
-        ("I",  "SampleSize"),
-        ("H",  "left"),
-        ("H",  "top"),
-        ("H",  "right"),
-        ("H",  "bottom")
+class StreamHeader(LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("fccType",             c_char * 4),
+        ("fccHandler",          c_char * 4),
+        ("Flags",               c_uint32),
+        ("Priority",            c_uint16),
+        ("Language",            c_uint16),
+        ("InitialFrames",       c_uint32),
+        ("Scale",               c_uint32),
+        ("Rate",                c_uint32),
+        ("Start",               c_uint32),
+        ("Length",              c_uint32),
+        ("SuggestedBufferSize", c_uint32),
+        ("Quality",             c_uint32),
+        ("SampleSize",          c_uint32),
+        ("left",                c_uint16),
+        ("top",                 c_uint16),
+        ("right",               c_uint16),
+        ("bottom",              c_uint16)
     ]
 
 
@@ -74,30 +74,30 @@ IF_LIST =     0x00000001
 IF_KEYFRAME = 0x00000010
 IF_NO_TIME =  0x00000100
 
-class OldIndexEntry(NamedStruct):
-    endian = "little"
-    fields = [
-        ("4s", "ChunkId"),
-        ("I",  "Flags"),
-        ("I",  "Offset"),
-        ("I",  "Size")
+class OldIndexEntry(LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("ChunkId", c_char * 4),
+        ("Flags",   c_uint32),
+        ("Offset",  c_uint32),
+        ("Size",    c_uint32)
     ]
 
 
-class BitmapInfoHeader(NamedStruct):
-    endian = "little"
-    fields = [
-        ("I",  "Size"),
-        ("i",  "Width"),
-        ("i",  "Height"),
-        ("H",  "Planes"),
-        ("H",  "BitCount"),
-        ("4s", "Compression"),
-        ("I",  "SizeImage"),
-        ("i",  "XPelsPerMeter"),
-        ("i",  "YPelsPerMeter"),
-        ("I",  "ClrUsed"),
-        ("I",  "ClrImportant")
+class BitmapInfoHeader(LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("Size",          c_uint32),
+        ("Width",         c_int32),
+        ("Height",        c_int32),
+        ("Planes",        c_uint16),
+        ("BitCount",      c_uint16),
+        ("Compression",   c_char * 4),
+        ("SizeImage",     c_uint32),
+        ("XPelsPerMeter", c_int32),
+        ("YPelsPerMeter", c_int32),
+        ("ClrUsed",       c_uint32),
+        ("ClrImportant",  c_uint32)
     ]
 
 
