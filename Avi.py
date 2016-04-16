@@ -621,10 +621,10 @@ class AviInput(object):
 
         si = collections.defaultdict(list)
         entry_count = int(idx1.content_length / float(OldIndexEntry.size()))
-        for n in range(0, entry_count):
+        for _ in range(entry_count):
             entry = OldIndexEntry.from_stream(self._file)
             if entry.Flags & IF_LIST == 0:
-                stream_num, frame_type = _unpack_frame_fcc(entry.ChunkId)
+                stream_num, _ = _unpack_frame_fcc(entry.ChunkId)
                 if stream_num is not None:
                     si[stream_num].append(_IndexPointer(
                         entry.ChunkId,
@@ -669,7 +669,7 @@ class AviInput(object):
             if c is None:
                 break
             elif c.fcc != "LIST":
-                stream_num, frame_type = _unpack_frame_fcc(c.fcc)
+                stream_num, _ = _unpack_frame_fcc(c.fcc)
                 if stream_num is not None:
                     si[stream_num].append(_IndexPointer(
                         c.fcc,

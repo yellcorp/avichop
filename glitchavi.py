@@ -13,7 +13,7 @@ def repeat_some(src, dest):
         return 1
 
     for f in range(0, src.frame_count):
-        for x in range(0, repeat_count_for_frame(f)):
+        for _ in range(0, repeat_count_for_frame(f)):
             frame = src.get_frame(f)
             dest.write_frame(frame)
 
