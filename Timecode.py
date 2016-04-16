@@ -17,6 +17,8 @@ _TOLERANCE = 900
 _SNAP_FPS_MIN = (_COMMON_FPS_NUM[0] - _TOLERANCE) / _DENOMINATOR
 _SNAP_FPS_MAX = (_COMMON_FPS_NUM[-1] + _TOLERANCE) / _DENOMINATOR
 
+EXACT_29_97 = 30000000 / _DENOMINATOR
+
 
 def interpret_frame_rate(ufps):
     """Adjusts a frame rate, expressed as frames per second, to a common
@@ -24,7 +26,7 @@ def interpret_frame_rate(ufps):
     ufps = float(ufps)
     if ufps < _SNAP_FPS_MIN or ufps > _SNAP_FPS_MAX:
         return ufps
-    bfps = ufps * _DEN
+    bfps = ufps * _DENOMINATOR
     min_diff = 1 << 31
     nearest = None
     for t in _COMMON_FPS_NUM:
@@ -33,7 +35,7 @@ def interpret_frame_rate(ufps):
             min_diff = diff
             nearest = t
     if min_diff <= _TOLERANCE:
-        return nearest / _DEN
+        return nearest / _DENOMINATOR
     return ufps
 
 def _sum_frames(units, fps):
