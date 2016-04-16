@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 
 import sys
@@ -24,12 +24,12 @@ def benedict(src, dest):
 
 def repeat_some(src, dest):
     def repeat_count_for_frame(f):
-        if f >= 2:
-            return f
+        if f == 73:
+            return 15
         return 1
 
-    for f in xrange(0, src.frame_count):
-        for x in xrange(0, repeat_count_for_frame(f)):
+    for f in range(0, src.frame_count):
+        for _ in range(0, repeat_count_for_frame(f)):
             frame = src.get_frame(f)
             dest.write_frame(frame)
 
